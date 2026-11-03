@@ -1,389 +1,244 @@
-# MoveSense — Urban Automobile Mobility Segmentation Using K-Means
+# MoveSense — Urban Mobility Pattern Segmentation
 
-**MoveSense** is a machine learning case study that identifies patterns in urban automobile travel by applying K-Means clustering to real-world National Household Travel Survey (NHTS) trip data.
+> **MoveSense is an unsupervised machine-learning case study that uses K-Means clustering to group automobile trips by distance, travel duration, departure time, and peak-hour behaviour.**
 
-The project focuses on discovering groups of automobile trips with similar travel characteristics, such as distance, duration, and departure-time patterns. Instead of relying on predefined commuter categories, MoveSense uses unsupervised learning to identify travel behaviour directly from the data.
-
----
-
-## 1. Case Study: Understanding Urban Automobile Mobility
-
-### The Problem
-
-Urban transportation systems generate large amounts of travel data, but understanding how people move across a city requires more than simply counting trips or measuring total distance.
-
-Different automobile trips can represent very different mobility patterns:
-
-- Short-distance trips with relatively low travel durations.
-- Long-distance trips involving extended travel times.
-- Trips concentrated around particular departure-time periods.
-- Trips with similar travel characteristics that may represent common mobility behaviours.
-
-Without structured analysis, these patterns can be difficult to identify from raw trip-level datasets.
-
-### Our Approach
-
-MoveSense addresses this problem through **unsupervised machine learning**.
-
-The system processes automobile trip records from the National Household Travel Survey (NHTS), extracts relevant travel features, and applies K-Means clustering to group trips based on their similarities.
-
-The objective is to discover meaningful mobility segments that can support:
-
-- Understanding automobile travel behaviour.
-- Identifying similarities between different trips.
-- Analysing travel patterns across time and distance.
-- Supporting data-driven urban mobility research and planning.
-
-**Unit of analysis:** One automobile trip.
-
-**Learning approach:** Unsupervised learning.
-
-**Core algorithm:** K-Means clustering.
-
-**Dataset source:** National Household Travel Survey (NHTS), 2022 V2.1.
+This report documents the results stored in the attached `MoveSense.ipynb` notebook. The reported metrics and charts below are extracted from that notebook's executed outputs.
 
 ---
 
-## 2. Why K-Means Clustering?
+## 1. Case Study
 
-K-Means was selected because the problem involves discovering groups within numerical travel data without having predefined labels.
+Urban mobility data contains trips with different travel characteristics. The purpose of MoveSense is to explore whether automobile trips can be grouped into meaningful mobility patterns using unsupervised learning.
 
-The dataset does not provide ready-made categories such as short-distance commuters, long-distance travellers, or peak-hour travellers. These categories need to be discovered from the underlying patterns.
+The notebook treats **one trip as one observation** and uses K-Means to assign each trip to a cluster based on four numerical features. Since there are no predefined cluster labels, the model discovers groups from the feature values rather than predicting known categories.
 
-K-Means is suitable for this task because:
+## 2. Dataset Overview
 
-1. **Unsupervised learning:** It discovers groups without requiring labelled training data.
-2. **Centroid-based grouping:** Each cluster is represented by a centroid, making the resulting groups easier to analyse.
-3. **Numerical feature compatibility:** It works naturally with engineered numerical travel features.
-4. **Computational efficiency:** It can process large trip-level datasets efficiently.
-5. **Interpretability:** Cluster centres and feature profiles help explain the characteristics of each mobility segment.
+| Item | Notebook result |
+|---|---:|
+| Dataset file | `MoveSense_NHTS_Automobile_Trips.csv` |
+| Dataset source identified in notebook | National Household Travel Survey (NHTS), V2.1 subset |
+| Initial records | 27,360 |
+| Initial columns | 102 |
+| Valid automobile trips after notebook cleaning | 27,360 |
+| Selected feature matrix | 27,360 rows × 4 features |
 
-The algorithm uses distance-based similarity to assign each trip to the nearest cluster centroid.
+### Dataset selection and cleaning
 
-### Comparison with Other Clustering Algorithms
+The notebook selects records where `TRIPMODE` is either `1` or `2`. It reports the following mode counts before filtering:
 
-The following is a conceptual comparison of clustering approaches, not a benchmark claiming that every algorithm was experimentally evaluated on the MoveSense dataset.
+| `TRIPMODE` | Records |
+|---:|---:|
+| 1 | 20,456 |
+| 2 | 6,904 |
+| **Total** | **27,360** |
 
-| Algorithm | Working principle | Advantages | Limitations for MoveSense |
-|---|---|---|---|
-| **K-Means** | Groups observations around K centroids using distance. | Efficient, interpretable, suitable for numerical trip features. | Requires K in advance; sensitive to scaling and outliers. |
-| Hierarchical Clustering | Builds a hierarchy of clusters using successive merges or splits. | Shows relationships between clusters; does not initially require a fixed K. | Can become computationally expensive on large datasets. |
-| DBSCAN | Groups points based on density and identifies noise. | Can identify irregularly shaped clusters and outliers. | Sensitive to density parameters; varying-density travel patterns can be difficult to handle. |
-| Gaussian Mixture Model (GMM) | Models data as a mixture of probability distributions. | Provides probabilistic cluster membership. | Requires distribution assumptions and can be more complex to interpret. |
+The notebook then:
+- Converts the required columns to numeric values.
+- Validates `STRTTIME` as a valid HHMM time (0–2359, with minutes below 60).
+- Derives the departure hour from `STRTTIME`.
+- Removes records with missing required values.
+- Keeps trips with `TRPMILES > 0` and `< 1000`.
+- Keeps trips with `TRVLCMIN > 0` and `< 1440`.
 
-### Why K-Means Was the Final Choice
+The executed notebook reports **27,360 valid trips** after this process. In this particular CSV, the two reported `TRIPMODE` counts already add up to all 27,360 input rows.
 
-For this case study, K-Means provides a practical balance between computational efficiency, numerical feature processing, and interpretability.
+## 3. Features Selected
 
-Its centroid-based approach makes it possible to analyse the average characteristics of each discovered travel segment.
+Four numerical features are passed to K-Means:
 
-The objective is not to claim that K-Means is universally superior to other algorithms. It is to use an algorithm that fits the structure and requirements of this particular mobility segmentation problem.
-
----
-
-## 3. Dataset and Feature Engineering
-
-### Data Source
-
-MoveSense uses automobile-trip records derived from the **2022 National Household Travel Survey (NHTS), Version 2.1**.
-
-The dataset contains individual travel observations. The preprocessing pipeline filters the records to retain valid automobile trips for analysis.
-
-Each row represents one trip rather than one individual or household.
-
-### Features Used
-
-The revised backend applies feature engineering to represent trip characteristics numerically.
-
-| Feature | Description | Purpose |
+| Feature used by model | Source / derivation | Meaning |
 |---|---|---|
-| Log Trip Distance | Log-transformed trip distance. | Reduces the influence of highly skewed distance values. |
-| Log Trip Duration | Log-transformed travel duration. | Reduces skewness caused by unusually long trips. |
-| Departure Time — Sine | Sine transformation of departure time. | Captures the cyclic nature of time. |
-| Departure Time — Cosine | Cosine transformation of departure time. | Preserves the relationship between times near midnight. |
+| `distance_miles` | `TRPMILES` | Distance travelled in miles |
+| `travel_time_min` | `TRVLCMIN` | Trip duration in minutes |
+| `departure_hour` | Hour derived from `STRTTIME` | Hour at which the trip begins |
+| `peak_hour_flag` | Derived from `departure_hour` | 1 if the trip starts during a defined peak window; otherwise 0 |
 
-### Why Transform Departure Time?
+**Peak-hour windows in the notebook:** 7–9 AM and 4–6 PM (hours 7, 8, 9, 16, 17, and 18).
 
-Time is cyclic rather than linear.
+### Feature scaling
 
-For example, 11:55 PM and 12:05 AM are only ten minutes apart, even though their numerical hour values appear far apart.
+The notebook applies `StandardScaler` to all four features before fitting K-Means. This is necessary because the features use different units and numerical ranges. Standardization gives each feature a comparable scale for the distance calculations used by K-Means.
 
-To represent this relationship, departure time is transformed using:
+## 4. Why K-Means?
 
-\[
-\theta = \frac{2\pi h}{24}
-\]
+K-Means was selected because this is an unsupervised clustering task with numerical trip features. It is relatively efficient, straightforward to implement, and produces cluster centroids that can be profiled to understand the groups.
 
-\[
-Time_{sin} = \sin(\theta)
-\]
+### Qualitative comparison with other clustering algorithms
 
-\[
-Time_{cos} = \cos(\theta)
-\]
+> The table below is a conceptual comparison of algorithms. The notebook experimentally evaluates K-Means only; it does **not** report benchmark scores for the other algorithms.
 
-Where:
+| Algorithm | How it groups data | Strengths | Limitations for this case study |
+|---|---|---|---|
+| **K-Means** | Assigns each trip to the nearest centroid | Efficient on numerical data; simple to interpret; produces centroid-based profiles | Requires K; sensitive to outliers and scaling; favours compact, roughly spherical clusters |
+| DBSCAN | Groups points in dense regions and marks sparse points as noise | Does not require K; can identify noise and irregularly shaped groups | Sensitive to `eps` and `min_samples`; varying-density data can be difficult |
+| Agglomerative clustering | Builds a hierarchy by repeatedly merging clusters | Supports hierarchical exploration and different linkage methods | Can be computationally expensive on larger datasets; requires a cut level or cluster count |
+| Gaussian Mixture Model (GMM) | Models data as a mixture of probability distributions | Gives probabilistic/soft cluster membership | Requires distribution assumptions and model selection; may be sensitive to initialization |
 
-- \(h\) is the departure hour.
-- \(\theta\) is its angular representation.
+## 5. How K-Means Works
 
-This gives the clustering algorithm a more meaningful representation of departure-time similarity.
+K-Means attempts to minimize the within-cluster sum of squared distances (WCSS), also called **inertia**.
 
-### Feature Scaling
+1. **Choose K:** specify the number of clusters.
+2. **Initialize centroids:** MoveSense uses K-Means++ initialization.
+3. **Assign observations:** assign each trip to its nearest centroid using Euclidean distance in the standardized feature space.
+4. **Update centroids:** calculate the mean feature vector of the trips assigned to each cluster.
+5. **Repeat:** continue assignment and centroid updates until convergence or the iteration limit is reached.
+6. **Return labels:** each trip receives a cluster identifier.
 
-The engineered features are standardized using `StandardScaler`.
+The labels `0` and `1` are identifiers only; they do not indicate a ranking.
 
-\[
-Z = \frac{X-\mu}{\sigma}
-\]
+## 6. K Selection: Why K = 2?
 
-Where:
+The notebook evaluates candidate cluster counts from **K = 2 through K = 8**. For each candidate, it fits a K-Means model and records inertia and silhouette score.
 
-- \(X\) is the original feature value.
-- \(\mu\) is the feature mean.
-- \(\sigma\) is the feature standard deviation.
-- \(Z\) is the standardized value.
+### Candidate evaluation results
 
-Scaling is important because K-Means uses distance calculations. Without standardization, features with larger numerical ranges could dominate the clustering process.
+| K | Inertia (WCSS) | Silhouette score |
+|---:|---:|---:|
+| 2 | 77,330.0384 | **0.8640** |
+| 3 | 50,091.6223 | 0.4786 |
+| 4 | 37,285.2056 | 0.5455 |
+| 5 | 29,256.1721 | 0.5942 |
+| 6 | 21,306.9177 | 0.6108 |
+| 7 | 17,827.8276 | 0.6244 |
+| 8 | 14,853.7324 | 0.6322 |
 
----
+**Notebook selection rule:** choose the K with the highest silhouette score. Based on the recorded table, **K = 2** is selected because its silhouette score of **0.8640** is the highest among the tested candidates.
 
-## 4. How K-Means Works in MoveSense
+### What the metrics mean
 
-K-Means partitions the dataset into K clusters by minimizing the within-cluster sum of squared distances.
+- **Silhouette score:** measures how close an observation is to its own cluster compared with the nearest alternative cluster. Higher values generally indicate better cohesion and separation. The score ranges from -1 to +1.
+- **Inertia / WCSS:** measures the sum of squared distances between observations and their assigned centroids. It normally decreases as K increases, so it should not be used by itself to choose K.
 
-### Step 1 — Data Preparation
+The notebook calculates silhouette scores using a sample of up to 5,000 observations (`sample_size=min(5000, len(X_scaled))`) with `random_state=42`. Inertia is taken from the fitted K-Means model.
 
-- Load the NHTS automobile-trip dataset.
-- Validate the required fields.
-- Filter invalid or irrelevant records.
-- Engineer the numerical travel features.
-- Standardize the feature matrix.
+### Important interpretation of K = 2
 
-### Step 2 — Select the Number of Clusters
+The high silhouette score should **not** be interpreted as proof that the dataset has two balanced, useful urban mobility segments. The final cluster distribution is extremely imbalanced:
 
-K represents the number of mobility segments the algorithm will identify.
+- Cluster 0 contains 197 trips (about 0.72%).
+- Cluster 1 contains 27,163 trips (about 99.28%).
 
-MoveSense evaluates candidate cluster counts using the Elbow Method and Silhouette Score.
+The cluster profile also shows that Cluster 0 has much larger average distance and duration than Cluster 1. This suggests that K = 2 is primarily separating a small group of very long-distance/long-duration trips from the much larger group of ordinary trips in this dataset. This may be a valid separation, but it is not necessarily the same as discovering two balanced commuter segments.
 
-**Elbow Method**
+For a stronger mobility-segmentation study, investigate the small cluster and the effect of extreme values. Consider testing justified transformations or robust preprocessing and comparing the resulting cluster profiles. Any such changes must be retrained and reported as a separate experiment.
 
-The Elbow Method examines the Within-Cluster Sum of Squares (WCSS), also known as inertia.
+## 7. K-Means Implementation
 
-\[
-WCSS = \sum_{j=1}^{K}\sum_{x_i \in C_j}
-\|x_i-\mu_j\|^2
-\]
+The following excerpt reflects the candidate-evaluation logic in the attached notebook:
 
-A lower WCSS indicates that observations are closer to their assigned centroids. The elbow point helps identify where increasing K produces diminishing improvements.
+```python
+K_VALUES = range(2, 9)
 
-**Silhouette Score**
+INIT = "k-means++"
+N_INIT = 20
+MAX_ITER = 300
+RANDOM_STATE = 42
 
-The Silhouette Score measures how well observations fit within their assigned clusters compared with neighbouring clusters.
+results = []
+models = {}
 
-\[
-s(i)=\frac{b(i)-a(i)}{\max(a(i),b(i))}
-\]
+for k in K_VALUES:
+    model = KMeans(
+        n_clusters=k,
+        init=INIT,
+        n_init=N_INIT,
+        max_iter=MAX_ITER,
+        random_state=RANDOM_STATE
+    )
 
-Where:
+    labels = model.fit_predict(X_scaled)
 
-- \(a(i)\) is the average distance to observations in the same cluster.
-- \(b(i)\) is the lowest average distance to observations in another cluster.
-
-The score ranges from -1 to +1. Higher values generally indicate better-separated clusters.
-
-### Step 3 — Initialize Centroids
-
-The algorithm initializes K centroids in the standardized feature space.
-
-### Step 4 — Assign Trips to Clusters
-
-Each trip is assigned to the nearest centroid using Euclidean distance.
-
-\[
-d(x,\mu_j)=\sqrt{\sum_{m=1}^{n}(x_m-\mu_{jm})^2}
-\]
-
-### Step 5 — Update Centroids
-
-The centroid of each cluster is recalculated as the mean of all observations assigned to that cluster.
-
-\[
-\mu_j=\frac{1}{|C_j|}\sum_{x_i \in C_j}x_i
-\]
-
-### Step 6 — Repeat Until Convergence
-
-The assignment and centroid-update steps repeat until the centroids stabilize or the stopping condition is reached.
-
-### Step 7 — Evaluate and Interpret Clusters
-
-After training, the system evaluates the clustering output and generates cluster-level summaries and visualizations to understand the resulting mobility segments.
-
----
-
-## 5. Model Evaluation and Visualizations
-
-MoveSense uses multiple evaluation methods to analyse the quality and characteristics of the generated clusters.
-
-| Evaluation | What it tells us |
-|---|---|
-| Elbow Curve | How within-cluster variation changes as K increases. |
-| Silhouette Score | How well-separated the resulting clusters are. |
-| Cluster Distribution | How many trips are assigned to each cluster. |
-| Cluster Profiles | The average feature characteristics of each cluster. |
-| PCA Visualization | A two-dimensional representation of the high-dimensional feature space. |
-
-### PCA Visualization
-
-Principal Component Analysis (PCA) is used to project the standardized feature space into two dimensions for visualization.
-
-PCA is **not the clustering algorithm** in MoveSense. K-Means performs the actual clustering, while PCA helps visualize the resulting groups.
-
-### Interpreting the Results
-
-The cluster profiles allow us to examine:
-
-- Differences in average trip distance.
-- Differences in average trip duration.
-- Differences in departure-time patterns.
-- The relative size of each discovered mobility segment.
-
-The resulting clusters are data-driven groupings, not predefined demographic categories or verified individual commuter identities.
-
----
-
-## 6. Results and Findings
-
-The main output of MoveSense is a set of automobile mobility segments discovered through K-Means.
-
-The results are evaluated using clustering metrics and visual analysis rather than classification accuracy, because the dataset does not contain predefined cluster labels.
-
-### Results Summary
-
-The following values should be populated from the latest successful training run:
-
-| Metric | Latest run |
-|---|---|
-| Valid automobile trips | [Insert actual count] |
-| Number of selected clusters (K) | [Insert selected K] |
-| Silhouette Score | [Insert actual score] |
-| Inertia / WCSS | [Insert actual value] |
-| Number of features | 4 engineered features |
-
-### Cluster-Level Analysis
-
-| Cluster | Number of Trips | Average Trip Distance | Average Trip Duration | Departure-Time Pattern |
-|---|---|---|---|---|
-| Cluster 0 | [Actual value] | [Actual value] | [Actual value] | [Interpretation] |
-| Cluster 1 | [Actual value] | [Actual value] | [Actual value] | [Interpretation] |
-| Additional clusters | [If applicable] | [Actual value] | [Actual value] | [Interpretation] |
-
-*The number of rows in this table must match the K selected by the actual training run.*
-
-### Key Findings
-
-The cluster profiles help reveal whether automobile trips naturally form distinct groups based on their distance, duration, and departure-time characteristics.
-
-These findings can be used to explore differences in travel behaviour and provide an analytical foundation for further urban mobility studies.
-
-The model identifies statistical similarities between trips; it does not establish the causes of those behaviours.
-
----
-
-## 7. Project Workflow
-
-```text
-NHTS Dataset
-     |
-     v
-Automobile Trip Filtering
-     |
-     v
-Data Validation and Cleaning
-     |
-     v
-Feature Engineering
-     |
-     v
-Feature Standardization
-     |
-     v
-K Selection
-(Elbow Method + Silhouette Score)
-     |
-     v
-K-Means Clustering
-     |
-     v
-Cluster Evaluation
-     |
-     v
-PCA Visualization
-     |
-     v
-Cluster Profiles and Results
+    score = silhouette_score(
+        X_scaled,
+        labels,
+        sample_size=min(5000, len(X_scaled)),
+        random_state=RANDOM_STATE
+    )
+
+    results.append({
+        "K": k,
+        "Inertia": model.inertia_,
+        "Silhouette Score": score
+    })
+
+    models[k] = model
+
+evaluation_df = pd.DataFrame(results)
+
+best_k = int(
+    evaluation_df.loc[
+        evaluation_df["Silhouette Score"].idxmax(),
+        "K"
+    ]
+)
 ```
 
----
+After selecting K, the notebook fits a final K-Means model with the selected cluster count and assigns a cluster label to every trip.
 
-## 8. Technology Stack
+### Model parameters recorded in the notebook
 
-| Component | Technology |
-|---|---|
-| Programming Language | Python |
-| Machine Learning | Scikit-learn |
-| Data Processing | Pandas, NumPy |
-| Clustering Algorithm | K-Means |
-| Feature Scaling | StandardScaler |
-| Dimensionality Reduction | PCA |
-| Backend | FastAPI |
-| Frontend | React, TypeScript, Vite |
-| Visualization | Recharts / Matplotlib |
+| Parameter | Value |
+|---|---:|
+| Candidate K values | 2–8 |
+| Initialization | `k-means++` |
+| `n_init` | 20 |
+| `max_iter` | 300 |
+| `random_state` | 42 |
+| Scaling | `StandardScaler` |
 
----
+`n_init=20` runs the clustering with 20 initial centroid configurations. `max_iter=300` sets the maximum iterations per run. `random_state=42` makes the randomized initialization and silhouette sampling reproducible.
 
-## 9. Backend API
+## 8. Final Results
 
-The FastAPI backend exposes endpoints for dataset handling, model training, and result retrieval.
+| Metric | Result |
+|---|---:|
+| Selected K | **2** |
+| Total trips clustered | **27,360** |
+| Silhouette score | **0.8640** |
+| Inertia (WCSS) | **77,330.04** |
+| PCA variance explained by first two components | **72.88%** |
 
-| Endpoint | Purpose |
-|---|---|
-| `/api/health` | Checks backend availability. |
-| `/api/status` | Returns project and training status. |
-| `/api/dataset/upload` | Uploads the dataset. |
-| `/api/dataset/preview` | Previews dataset records. |
-| `/api/train` | Starts the K-Means training pipeline. |
-| `/api/results` | Retrieves clustering results and evaluation information. |
+### Cluster-level profile
 
----
+| Cluster | Trip count | Trip share | Average distance (miles) | Average duration (min) | Average departure hour | Peak-hour share |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 197 | 0.72% | 313.05 | 410.81 | 10.24 | 0.41 |
+| 1 | 27,163 | 99.28% | 9.77 | 20.85 | 13.16 | 0.41 |
 
-## 10. Limitations and Future Scope
+**Interpretation:** Cluster 0 represents a very small set of trips with substantially higher average distance and duration. Cluster 1 contains the overwhelming majority of trips and has much lower average distance and duration. Both clusters have a reported peak-hour share of approximately 0.41.
 
-### Current Limitations
+## 9. Visual Results
 
-- K-Means requires the number of clusters to be selected before training.
-- It is sensitive to outliers and feature scaling.
-- It performs best when clusters are reasonably compact and separable in the chosen feature space.
-- NHTS observations represent surveyed travel behaviour and may not capture every aspect of urban mobility.
-- Discovered clusters indicate similarity, not causation.
+### 9.1 Trip Distance and Travel Duration Distribution
+<img width="1289" height="390" alt="trip_distance_duration_distribution" src="https://github.com/user-attachments/assets/73bf91c2-981c-4afc-929f-b1bcd759e5e9" />
 
-### Future Scope
+### 9.2 Automobile Trips by Departure Hour
+<img width="989" height="390" alt="automobile_trips_by_departure_hour" src="https://github.com/user-attachments/assets/6a6c096c-f591-4d55-8d96-19d1472f6dc5" />
 
-- Incorporate additional travel characteristics where reliable data is available.
-- Analyse mobility patterns across different geographic regions.
-- Compare K-Means results empirically against alternative clustering algorithms.
-- Explore temporal and regional changes in automobile travel behaviour.
-- Investigate how mobility segments can support transport planning and infrastructure decisions.
+### 9.3 Elbow Method and Silhouette Score
+<img width="1289" height="390" alt="k_selection_elbow_silhouette" src="https://github.com/user-attachments/assets/baf51fda-7052-4098-81c0-3eb4a25c7d32" />
 
----
+### 9.4 Number of Trips per Cluster
+<img width="690" height="390" alt="cluster_distribution" src="https://github.com/user-attachments/assets/ed676205-449e-49ae-accf-5291f817029d" />
+
+### 9.5 PCA Visualization of K-Means Clusters
+<img width="790" height="590" alt="pca_kmeans_clusters" src="https://github.com/user-attachments/assets/cd749780-44f8-40b4-b468-790d84208291" />
+
+### 9.6 Cluster Feature Profile Heatmap
+<img width="821" height="390" alt="cluster_feature_profile_heatmap" src="https://github.com/user-attachments/assets/aadfdec9-319a-4813-9992-df11b69c9517" />
+
+## 10. Implementation Notes and Reproducibility
+
+- The results in this report are from the **attached notebook's executed run**.
+- In this notebook, K selection is based on the maximum silhouette score. It does **not** apply a minimum 5% cluster-share eligibility constraint.
+- The previously inspected backend implementation had a minimum-cluster-share check in its automatic K-selection logic. If that rule is still present in the current backend, the notebook's K = 2 result is **not automatically the same as the backend's selected result**.
+- The notebook's preprocessing removes records outside the stated distance/duration limits; it does not use the same capping operation described in the previously inspected backend code.
+- Therefore, do not present the notebook metrics as API/backend metrics unless the current `backend/main.py` preprocessing, K-selection rule, and training parameters have been aligned and the backend has been retrained.
+- The PCA plot is a visualization of the final labels. It is not evidence that the model was trained on two PCA components.
 
 ## 11. Conclusion
 
-MoveSense demonstrates how unsupervised machine learning can be applied to real-world transportation data to discover patterns that are not explicitly labelled.
+The executed notebook clustered 27,360 automobile trips using four standardized mobility features. It evaluated K values from 2 to 8 and selected K = 2 because it produced the highest recorded silhouette score (0.8640). The final result separates a small set of very long trips from the dominant group of shorter trips. The strong silhouette score is promising, but the 0.72% versus 99.28% cluster split is an important limitation: further preprocessing and cluster-validity analysis are needed before describing the result as two balanced urban mobility segments.
 
-By combining NHTS automobile-trip data, feature engineering, standardization, and K-Means clustering, the project creates interpretable mobility segments based on travel characteristics.
-
-The case study highlights the practical use of machine learning in understanding urban automobile mobility and demonstrates how data-driven segmentation can support further transportation analysis.
-
-**Core idea:** Transform raw automobile-trip records into meaningful mobility segments using K-Means clustering.
